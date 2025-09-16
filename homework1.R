@@ -11,8 +11,6 @@ library(stats)
 library(MASS)
 ``` 
 
-
-
 ## 1. OLS Estimation
 
 Recall that we implemented the OLS estimator in the lecture ([link](https://zhan-gao.github.io/ECOx370/lectures/02-R-adv.html#example-ols-estimation)). 
