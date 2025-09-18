@@ -48,11 +48,17 @@ ols_test <- ols_est(X, y)
 lm_test <- lm(y~X)
 summary(lm_test)
                                                                     
-coef(lm_test)                                      # Estimated coefficients
-summary(lm_test)$coefficients[, "t value"]         # t-values
-                                                                    
+coef(lm_test) 
+#Extracts just the estimated coefficients from the lm_test mode
+summary(lm_test)$coefficients[, "t value"] 
+#Extracts the t-statistics for each coefficient from the summary
+                                                              
 print(ols_test$coefficients)
+# Prints the coefficients estimated by your custom ols_est function 
+#Uses the $ operator to access the coefficients element inside the ols_test list
 print(ols_test$t_vals)
+#Prints the t-values estimated by your custom ols_est function
+#Uses $t_vals to extract and print the t-values vecto
 ```
                                                                     
 ## 2. Monte Carlo Simulation
@@ -68,14 +74,22 @@ Pleaes write a function `dgp(...)` that takes the sample size $n$ and model para
 ```{r q2-dgp}
 # TODO: simulate data
 dgp <- function(n, a, B1, B2, rho, sigma1, sigma2) {
-  #using a covariance matrix to account for when independent variables are correlated
+  #cov_x1x2 computes the covariance between two cvariables x1 and x2 
+  #rho=correlation of coefficient, sigma1 = stndev of x1, sigma2=stndev of x2
+  
   cov_x1x2 <- rho * sigma1 *sigma2
   Sigma <- matrix(c(sigma1^2, cov_x1x2, cov_x1x2, sigma2^2), nrow=2, ncol=2)
-  
+
+#need to import MASS package to use mvrnorm 
+#mvrnorm() is a function that generates multivariate normal random sample
+#with n samples (rows), a mean vector for the two variables (mu = c(0,0)) both means are 0 in this case
+#sigma=sigma: covariance matrix (2x2) describing variances and covariances between the two varirables
+#x1 line extracts all rows from the first column of X: 
+#x1 is a vector length n containing the first variable's generated samples (same for x2, but 2nd row)
   X <- mvrnorm(n=n, mu=c(0,0), Sigma = Sigma)
   x1 <- X[, 1]
   x2 <- X[, 2]
-  
+
   #error
   u <- rnorm(n)
   
@@ -86,9 +100,7 @@ dgp <- function(n, a, B1, B2, rho, sigma1, sigma2) {
 ```
 
 
-### Step 2: Setup Primitive Parameters
-
-
+### Step 2: Setup Primitive Parameters (using the values given in homework)
 ```{r q2-setup}
 # TODO: setup primitive parameters: sample size, true parameters, etc.
 
@@ -102,27 +114,29 @@ sigma2 <- 4
 
 ```
 
-
 ### Step 3: Run Simulation
-
-
 ```{r q2-run}
 # TODO: Run the simulation (generate data - estimation - save results) for 1000 replications
 
 reps <- 1000
 
 #ncol=3 bc intercept, coeff x1 B1, coeff x2 B2
+#NA "Not Available", by filling the matrix with NA I initializing it with know dimensions but no values yet
 coefficient_matrix <- matrix(NA, nrow=reps, ncol=3)
 tval_matrix <- matrix(NA, nrow=reps, ncol=3)
 
 for (i in 1:reps){
   sim_data <- dgp(n=n, a=a, B1=B1, B2=B2, rho=rho, sigma1=sigma1, sigma2=sigma2)
-  
+
+  #takes the x1 and x2 columsns from the sim_data data frame and puts them in matric X
   X <- cbind(1, sim_data$x1, sim_data$x2)
   y <- sim_data$y
 
    result <- tryCatch(ols_est(X, y), error = function(e) NULL)
-   
+  #tryCatch os an error-handling mechanism in R
+  #error=function(e)=NULL on errors, do nothing (return NULL)
+
+  #if the result is NOT null - the estimation worked and the result object contains coefficients and tvals
    if(!is.null(result)){
   coefficient_matrix[i, ] <- result$coefficients
   tval_matrix[i, ] <- result$t_vals
@@ -130,18 +144,16 @@ for (i in 1:reps){
  
 }
 
-
-
 ```
 
 ### Step 4: Summarize Results
-
 ```{r q2-summarize}
 # TODO: Write a function to calculate bias and RMSE
 sum_results <- function(est_vals, true_vals) {
   #treat est_vals as matrix
   #remove missing vals
   est_means <- colMeans(est_vals, na.rm=TRUE)
+  #colMeans() computes the mean of each column in a matrix or data frame
   
   bias <- est_means - true_vals
   
