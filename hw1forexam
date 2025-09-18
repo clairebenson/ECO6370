@@ -176,10 +176,7 @@ print(results_summary)
 
 # TODO: plot the empirical density of the estimated coefficient beta_1 across replications
 B1_estimates <- as.numeric(coefficient_matrix[, 2])
-#B1_estimates_clean <- B1_estimates[!is.na(B1_estimates)]
-#testing 215 to get rid of errors
 
-#if(length(B1_estimates_clean)>=2){
 plot(density(B1_estimates, na.rm=TRUE),
      main = expression(paste("Empiral density of ", hat(beta)[1])),
      xlab = expression(hat(beta)[1]),
@@ -187,17 +184,16 @@ plot(density(B1_estimates, na.rm=TRUE),
      col = "pink", 
      lwd = 2)
 
+#adds vertical line to existing plot at the x-position B1
+#line color is blue
+#line type is dashed 
 abline(v=B1, col="blue", lty=2)
 legend("topright", 
        legend = expression(paste("True beta1", beta[1])), 
        col = "blue", 
        lty = 2, 
        bty = "n")
-
-#} else{
- # print("Not enough vals")
-#}
-
+#last line removes box around the legend
 ```
 
 
@@ -248,6 +244,8 @@ for(n in sample_sizes){
   results_list[[as.character(n)]] <- results_summary
 }
 
+#Binds all elements in results_list together by row
+#Row-binds a, b, and c — do.call automates this from a list
 all_results <- do.call(rbind, results_list)
 print(all_results)
 
