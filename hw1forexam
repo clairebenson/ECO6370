@@ -1,5 +1,3 @@
-
-  
   ## 0. Setup
   
   ```{r, message=FALSE}
@@ -9,32 +7,31 @@ set.seed(123)  # Please don't change this seed.
 library(tidyverse)
 library(stats)
 library(MASS)
+#library(ggplot) - probably don't include, don't want to make charts using this library/functions 
 ``` 
 
 ## 1. OLS Estimation
-
-Recall that we implemented the OLS estimator in the lecture ([link](https://zhan-gao.github.io/ECOx370/lectures/02-R-adv.html#example-ols-estimation)). 
-Please write a function `ols_est(X, y)` that implements the OLS estimator and returns both the estimate dcoefficients and the t-values.
-                                                                    
+Please write a function `ols_est(X, y)` that implements the OLS estimator and returns both the estimate dcoefficients and the t-values.                                   
 # TODO: finish the function ols_est(X, y).
                                                                     
 ols_est <- function(X, y) {
-bhat <- qr.solve(t(X) %*% X, t(X) %*% y)
-yhat <- X %*% bhat
+bhat <- qr.solve(t(X) %*% X, t(X) %*% y)        #estimated coefficients (not the "true" values)
+yhat <- X %*% bhat                              #estimated value of the dependent variable (regression line)
 residuals <- y-yhat
                                                                       
 n <- nrow(X)
- k <- ncol(X)
+k <- ncol(X)
 df = n-k
-sighat2 = sum(residuals^2)/df
+
+sighat2 = sum(residuals^2)/df                    #unbiased estimator of the variance of the error term in a linear regression model
 var_bhat <- sighat2 * solve(t(X) %*% X)
 se_bhat <- sqrt(diag(var_bhat))
-#debugging
 t_vals <- as.vector(bhat)/se_bhat
 return(list(coefficients = as.vector(bhat),
 t_vals =t_vals)
 )
 }
+
 ```
 Please generate a simple test dataset to check if your function is working properly by comparing with the result from `lm()`. 
 ```{r q1-test}
