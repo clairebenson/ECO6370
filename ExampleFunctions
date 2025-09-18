@@ -183,3 +183,28 @@ Mean T-values:
 Prediction for new observation [1, 0.5, -0.5]:
 [1] 1.352
 
+#Run misspecified model with only b2 and the intercept 
+run_misspecified_sim <- function(n, reps = 1000) {
+  coefficient_matrix <- matrix(NA, nrow = reps, ncol = 2)  # Intercept and Beta2 only
+  
+  for (i in 1:reps) {
+    sim_data <- dgp(n=n, a=a, B1=B1, B2=B2, rho=rho, sigma1=sigma1, sigma2=sigma2)
+    
+    # ✅ Misspecified model: use intercept and x2 only
+    X <- cbind(1, sim_data$x2)
+    y <- sim_data$y
+    
+    result <- tryCatch(ols_est(X, y), error = function(e) NULL)
+    
+    if (!is.null(result)) {
+      coefficient_matrix[i, ] <- result$coefficients
+    }
+  }
+  
+  # ⚠️ Still using true values based on the correctly specified model
+  true_vals <- c(Intercept = a, Beta2 = B2)  # NOTE: Use Beta2 here since x2 is in model
+  
+  summary_stats <- sum_results(coefficient_matrix, true_vals)
+  return(summary_stats)
+}
+
