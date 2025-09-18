@@ -47,41 +47,27 @@ ols_test <- ols_est(X, y)
 lm_test <- lm(y~X)
 summary(lm_test)
                                                                     
-coef(lm_test)        # Estimated coefficients
-summary(lm_test)$coefficients[, "t value"] # t-values
+coef(lm_test)                                      # Estimated coefficients
+summary(lm_test)$coefficients[, "t value"]         # t-values
                                                                     
- print(ols_test$coefficients)
+print(ols_test$coefficients)
 print(ols_test$t_vals)
 ```
                                                                     
 ## 2. Monte Carlo Simulation
 Let's apply the skills learned in the class to implement a Monte Carlo simulation. 
-
-In such experiments, we sample data from a specified statistical model and examine the finite sample performance of estimation/inference procedures.
-
-For different data generating processes, different primitive parameter values, and different sample sizes $n$, we simulate data and estimate the model for many times and summarized the results (in most cases) by measures like (empirical) Bias, RMSE, size and empirical power functions, or empirical density plots, to examine the finite sample behavior of the estimation/inference procedures.
-
 In this exercise, we will focus on the finite sample estimation accuracy of the OLS estimator in linear regression models. The accuracy can be measured by bias and root mean square error (RMSE).
-
 Generically, bias and root mean square error (RMSE) are calculated by $$bias = R^{-1}\sum_{r=1}^R \left( \hat{ \theta}^{(r)} - \theta_0 \right),$$ $$RMSE = \left(R^{-1}\sum_{r= 1}^R \left( \hat{\theta}^{(r)} -\theta_0 \right)^2\right)^{1/2},$$ for true parameter $\theta_0$ and its estimate $\hat{\theta}^{(r)}$, and $R$ is the number of replications.
 
 ### Model
-
-Consider a linear regression model 
-$$y_i = \alpha + x_{i1}\beta_1 + x_{i2}\beta_2 + u_i$$
-for $i = 1, 2, \ldots, n$, where $n = 100$.
-$(y_i, x_i)$ are independently and identically distributed (i.i.d.) with $$u_i\sim i.i.d.N(0,1), \quad (x_{i1}, x_{i2})^\prime \sim i.i.d. N\left(\begin{pmatrix}0 \\ 1 \end{pmatrix}, \begin{pmatrix} \sigma_1^2 & \rho\sigma_1\sigma_2 \\  \rho\sigma_1\sigma_2 & \sigma_2^2 \end{pmatrix} \right).$$ True parameters are $a = 0.11$, $\beta = (0.22, 0.33)^\prime$, $\rho = 0.5$, $\sigma_1 = 1$, and $\sigma_2 = 4$.
-
 ### Step 1: Data generating function
 
 Pleaes write a function `dgp(...)` that takes the sample size $n$ and model parameters as inputs and returns the simulated data $(y_i, x_{i1}, x_{i2})$ for $i = 1, 2, \ldots, n$.
 
 ```{r q2-dgp}
 # TODO: simulate data
-#installed (MASS) package
 dgp <- function(n, a, B1, B2, rho, sigma1, sigma2) {
   #using a covariance matrix to account for when independent variables are correlated
-  #if we assumed independent variables are uncorrelated, dgp function would be slightly difference 
   cov_x1x2 <- rho * sigma1 *sigma2
   Sigma <- matrix(c(sigma1^2, cov_x1x2, cov_x1x2, sigma2^2), nrow=2, ncol=2)
   
@@ -128,16 +114,12 @@ reps <- 1000
 coefficient_matrix <- matrix(NA, nrow=reps, ncol=3)
 tval_matrix <- matrix(NA, nrow=reps, ncol=3)
 
-#set.seed(123)
-
 for (i in 1:reps){
   sim_data <- dgp(n=n, a=a, B1=B1, B2=B2, rho=rho, sigma1=sigma1, sigma2=sigma2)
   
   X <- cbind(1, sim_data$x1, sim_data$x2)
   y <- sim_data$y
-  
-  #use ols  function created in part1
- #debugging
+
    result <- tryCatch(ols_est(X, y), error = function(e) NULL)
    
    if(!is.null(result)){
