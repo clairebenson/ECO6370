@@ -27,7 +27,8 @@ sighat2 = sum(residuals^2)/df                    #unbiased estimator of the vari
 var_bhat <- sighat2 * solve(t(X) %*% X)
 se_bhat <- sqrt(diag(var_bhat))
 t_vals <- as.vector(bhat)/se_bhat
-return(list(coefficients = as.vector(bhat),
+coefficients = as.vector(bhat)
+return(list(coefficients = coefficients,
 t_vals =t_vals)
 )
 }
