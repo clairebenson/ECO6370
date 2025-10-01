@@ -1,0 +1,83 @@
+library(tidyverse)
+library(stats)
+library(MASS)
+
+if packages not working, ensure the following:
+install.packages("packagename")
+library(packagename)
+
+ctrl + alt + i to create new chunk of code 
+
+# Define matrix X (predictor matrix with intercept)
+X <- matrix(c(1, 1,   # row 1
+              1, 2,   # row 2
+              1, 3),  # row 3
+            nrow = 3, byrow = TRUE)
+
+# Define y (response vector)
+y <- matrix(c(2, 3, 6), nrow = 3, byrow = TRUE)
+X =
+     [,1] [,2]
+[1,]    1    1
+[2,]    1    2
+[3,]    1    3
+
+y =
+     [,1]
+[1,]    2
+[2,]    3
+[3,]    6
+
+#
+t(X) %*% X	
+𝑝×𝑝 p×p	Predictor correlation/covariance matrix (Gram matrix)
+output:      [,1] [,2]
+[1,]    3    6
+[2,]    6   14
+
+t(X) %*% y	
+𝑝×1
+p×1	Correlation between each predictor and the response
+
+solve(t(X)%*%X, t(X)%*%y)	
+𝑝×1
+p×1	Solves the normal equations to find regression coefficients
+output:      [,1]
+[1,]   11
+[2,]   26
+
+# %*% matrix multiplication 
+
+#diag() command
+var_bhat =
+     [,1] [,2]
+[1,]  0.04  0.01
+[2,]  0.01  0.09
+diag(var_bhat)
+[1] 0.04 0.09
+
+#as.vector() command 
+#If you have an object like a matrix, list, or a factor, as.vector() 
+#will convert it into a simple vector
+m <- matrix(1:6, nrow = 2)
+print(m)
+#      [,1] [,2] [,3]
+# [1,]    1    3    5
+# [2,]    2    4    6
+v <- as.vector(m)
+print(v)
+# [1] 1 2 3 4 5 6
+
+#cbind() function
+# Combining vectors vertically into a matrix 
+vec1 <- c(1, 2, 3)
+vec2 <- c("A", "B", "C")
+result_matrix <- cbind(vec1, vec2)
+print(result_matrix)
+     vec1 vec2
+[1,] "1"  "A" 
+[2,] "2"  "B" 
+[3,] "3"  "C"
+
+#why c is used in matrix definition 
+values <- matrix(c(1, 2, 3, 4, 5, 6), nrow=2, ncol=3)

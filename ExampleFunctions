@@ -1,0 +1,210 @@
+#Variance and Standard Error Estimator 
+# Custom function to compute variance-covariance matrix of OLS estimates
+vcov_ols <- function(X, residuals) {
+  n <- nrow(X)
+  k <- ncol(X)
+  sigma2 <- sum(residuals^2) / (n - k)  # estimate of error variance
+  XtX_inv <- solve(t(X) %*% X)          # (X'X)^-1
+  var_cov <- sigma2 * XtX_inv
+  return(var_cov)
+}
+
+# Example usage:
+set.seed(123)
+n <- 100
+X <- cbind(1, rnorm(n))    # Design matrix with intercept
+beta <- c(1, 2)
+y <- X %*% beta + rnorm(n)
+
+# OLS estimates manually
+bhat <- solve(t(X) %*% X) %*% t(X) %*% y
+residuals <- y - X %*% bhat
+
+# Calculate variance-covariance matrix using custom function
+vcov_custom <- vcov_ols(X, residuals)
+
+# Compare to built-in vcov from lm()
+lm_fit <- lm(y ~ X[, 2])
+vcov_lm <- vcov(lm_fit)
+
+print("Custom Variance-Covariance Matrix:")
+print(vcov_custom)
+
+print("Built-in Variance-Covariance Matrix:")
+print(vcov_lm)
+
+#Hypothesis Testing Function (t-test for coefficient)
+# Custom function to compute t-statistic and p-value for testing beta_j = 0
+t_test <- function(bhat, var_cov, j) {
+  se <- sqrt(var_cov[j, j])              # standard error of j-th coefficient
+  t_stat <- bhat[j] / se                 # t-statistic
+  p_value <- 2 * pt(-abs(t_stat), df = length(bhat) - 1)  # two-sided p-value
+  return(list(t_stat = t_stat, p_value = p_value))
+}
+
+# Using the previously calculated bhat and vcov_custom:
+test_result <- t_test(as.vector(bhat), vcov_custom, j = 2)  # test second coeff (slope)
+
+# Compare to built-in summary lm()
+summary_lm <- summary(lm_fit)
+
+print("Custom t-test for coefficient 2:")
+print(test_result)
+
+print("Built-in t-test for coefficient 2:")
+print(c(
+  t_stat = summary_lm$coefficients[2, "t value"],
+  p_value = summary_lm$coefficients[2, "Pr(>|t|)"]
+))
+
+#Prediction and Residual Functions 
+# Custom prediction function
+predict_ols <- function(X_new, bhat) {
+  return(X_new %*% bhat)
+}
+
+# Custom residuals function
+residuals_ols <- function(y, X, bhat) {
+  return(y - X %*% bhat)
+}
+
+# Example with same data
+X_new <- cbind(1, rnorm(5))
+y_pred_custom <- predict_ols(X_new, bhat)
+
+# Using built-in predict
+new_data <- data.frame(X.2 = X_new[, 2])
+y_pred_lm <- predict(lm_fit, new_data)
+
+print("Custom predictions:")
+print(y_pred_custom)
+
+print("Built-in predictions:")
+print(y_pred_lm)
+
+#Monte Carlo simulation with these functions 
+#true model y= b0 + b1x1 + b2x2 + u
+#u ~ (0,1)
+#simulate 1000 times and store: estimated coefficients, t-values
+
+# --- 1. Custom OLS Variance-Covariance Matrix Function ---
+vcov_ols <- function(X, residuals) {
+  n <- nrow(X)
+  k <- ncol(X)
+  sigma2 <- sum(residuals^2) / (n - k)
+  XtX_inv <- solve(t(X) %*% X)
+  var_cov <- sigma2 * XtX_inv
+  return(var_cov)
+}
+
+# --- 2. Custom t-test Function ---
+t_test <- function(bhat, var_cov, j) {
+  se <- sqrt(var_cov[j, j])
+  t_stat <- bhat[j] / se
+  p_value <- 2 * pt(-abs(t_stat), df = length(bhat) - 1)
+  return(list(t_stat = t_stat, p_value = p_value))
+}
+
+# --- 3. Custom Prediction Function ---
+predict_ols <- function(X_new, bhat) {
+  return(X_new %*% bhat)
+}
+
+# --- Monte Carlo Simulation Setup ---
+set.seed(123)
+reps <- 1000     # number of simulation repetitions
+n <- 100         # sample size per rep
+beta_true <- c(1, 0.5, -0.3)   # true coefficients
+
+# Storage matrices
+coef_matrix <- matrix(NA, nrow = reps, ncol = 3)
+tval_matrix <- matrix(NA, nrow = reps, ncol = 3)
+
+# Monte Carlo loop
+for (i in 1:reps) {
+  # Generate data
+  x1 <- rnorm(n)
+  x2 <- rnorm(n)
+  X <- cbind(1, x1, x2)
+  epsilon <- rnorm(n)
+  y <- X %*% beta_true + epsilon
+  
+  # Estimate coefficients manually
+  result <- tryCatch({
+    bhat <- solve(t(X) %*% X) %*% t(X) %*% y
+    residuals <- y - X %*% bhat
+    vcov_matrix <- vcov_ols(X, residuals)
+    
+    # Compute t-values for all coefficients
+    t_vals <- sapply(1:3, function(j) t_test(as.vector(bhat), vcov_matrix, j)$t_stat)
+    
+    list(coefficients = as.vector(bhat), t_vals = t_vals)
+  }, error = function(e) NULL)
+  
+  # Store results if estimation succeeded
+  if (!is.null(result)) {
+    coef_matrix[i, ] <- result$coefficients
+    tval_matrix[i, ] <- result$t_vals
+  }
+}
+
+# --- Analyze the Results ---
+est_means <- colMeans(coef_matrix, na.rm = TRUE)
+est_bias <- est_means - beta_true
+tval_means <- colMeans(tval_matrix, na.rm = TRUE)
+
+cat("Estimated Coefficient Means:\n")
+print(est_means)
+
+cat("\nBias of Estimates:\n")
+print(est_bias)
+
+cat("\nMean T-values:\n")
+print(tval_means)
+
+# --- Optional: Make Predictions on New Data ---
+X_new <- cbind(1, 0.5, -0.5)  # new observation
+last_beta <- coef_matrix[which.max(complete.cases(coef_matrix)), ]  # just grab a clean beta
+y_pred <- predict_ols(X_new, last_beta)
+
+cat("\nPrediction for new observation [1, 0.5, -0.5]:\n")
+print(y_pred)
+
+#output example:
+Estimated Coefficient Means:
+[1]  1.0001  0.5012 -0.3025
+
+Bias of Estimates:
+[1]  0.0001  0.0012 -0.0025
+
+Mean T-values:
+[1] 63.0195 35.5272 -20.7893
+
+Prediction for new observation [1, 0.5, -0.5]:
+[1] 1.352
+
+#Run misspecified model with only b2 and the intercept 
+run_misspecified_sim <- function(n, reps = 1000) {
+  coefficient_matrix <- matrix(NA, nrow = reps, ncol = 2)  # Intercept and Beta2 only
+  
+  for (i in 1:reps) {
+    sim_data <- dgp(n=n, a=a, B1=B1, B2=B2, rho=rho, sigma1=sigma1, sigma2=sigma2)
+    
+    # ✅ Misspecified model: use intercept and x2 only
+    X <- cbind(1, sim_data$x2)
+    y <- sim_data$y
+    
+    result <- tryCatch(ols_est(X, y), error = function(e) NULL)
+    
+    if (!is.null(result)) {
+      coefficient_matrix[i, ] <- result$coefficients
+    }
+  }
+  
+  # ⚠️ Still using true values based on the correctly specified model
+  true_vals <- c(Intercept = a, Beta2 = B2)  # NOTE: Use Beta2 here since x2 is in model
+  
+  summary_stats <- sum_results(coefficient_matrix, true_vals)
+  return(summary_stats)
+}
+
