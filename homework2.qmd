@@ -1,0 +1,396 @@
+::: {.callout-smu-blue}
+#Claire Benson
+- This homework is a *coding* assignment. Please follow the instructions to complete the tasks.
+- Use Quarto/Knitr chunks for all work.
+- Turn in the rendered HTML **and** your `.qmd` source via Canvas.
+:::
+
+## 0. Setup - DONE
+
+```{r, message=FALSE}
+set.seed(123)  
+
+# You may load packages you plan to use (optional):
+library(tidyverse)
+library(readxl)
+install.packages("zoo")
+library(zoo)
+library(lubridate)
+install.packages("forecast")
+library(forecast)
+library(stats)
+library(MASS)
+library(dplyr)
+library(ggplot2)
+
+# Read in the CPS data we used in the lecture
+cps <- read_csv("C:\\Users\\Claire\\OneDrive - Allen Economic Development Corporation\\Desktop\\Research + Projects\\ECO6370\\cps09mar.csv")
+
+
+# Read in the Welch Goyal Data we used in the lecture
+data_raw <- read_excel("C:\\Users\\Claire\\OneDrive - Allen Economic Development Corporation\\Desktop\\Research + Projects\\ECO6370\\PredictorData2018.xlsx",
+                       sheet = "Monthly",
+                       col_names = TRUE,
+                       na = "NaN")
+
+# Transform the Welch-Goyal data
+data_wg <- data_raw %>% 
+    transmute(
+        date = zoo::as.yearmon(lubridate::ymd(yyyymm, truncated = 2)),
+        ExReturn = log(Index) - log(c(1,Index[-length(Index)])),
+        dp = log(D12) - log(Index),
+        dy = log(D12) - log( c(1, Index[-length(Index)]) ),
+        ep = log(E12) - log(Index),
+        tms = lty - tbl,
+        dfy = BAA - AAA,
+        dfr = corpr - ltr,
+        bm = `b/m`,
+        tbl = tbl,
+        ltr = ltr,
+        ntis = ntis,
+        svar = svar,
+        infl = infl
+    ) %>% 
+    filter(row_number() > 1)
+```
+
+
+## 1. Return to Education for Subgroups
+
+In this exercise, we will estimate the Mincer equation for different subgroups based on gender and education level. The Mincer equation relates log wages to education and experience:
+
+$$\log(w_i) = \alpha + \beta_1 \cdot \text{education}_i + \beta_2 \cdot \text{experience}_i + \beta_3 \cdot \text{experience}_i^2 + \varepsilon_i$$
+
+### Step 1: Prepare the data
+
+First, prepare the CPS data for the Mincer regression analysis:
+
+```{r q1-prepare-data}
+# TODO: Filter and prepare the CPS data for Mincer regression
+# - Keep only workers with positive earnings, hours, and weeks
+# - Calculate hourly wage and log wage
+# - Calculate potential experience as age - education - 6
+# - Create education groups: "High School or Less" (≤12 years) vs "College+" (>12 years)
+# - Create gender labels
+
+# Step-by-step instructions for data preparation:
+
+
+# 3. Create subgroup indicators:
+#    - gender_group: "Male" if female == 0, "Female" if female == 1
+#    - edu_group: "High School or Less" if education <= 12, "College+" if education > 12
+#    - subgroup: combination of gender and education (4 groups total)
+
+# 4. Remove any observations with missing values in key variables
+
+cps_mincer <- cps %>%
+  # TODO: Add your filtering and transformation code here
+  # Hint: Follow the pattern from the lecture
+
+#1 
+  filter (earnings > 0, hours > 0, week > 0, hours <= 80, week <= 52)%>%
+
+#put everything in here
+mutate(
+#2
+  wage_hourly = earnings / (hours * week),
+  log_wage = log(wage_hourly),
+  experience = pmax(age - education - 6, 0),  
+  exp2 = experience^2,  
+#3
+gender_group = ifelse(female == 0, "Male", "Female"),
+edu_group = ifelse(education <= 12, "High School or Less", "College+"),
+subgroup = paste(gender_group, edu_group, sep = " - ")
+)%>%
+
+#4
+    drop_na(wage_hourly, log_wage, edu_group)
+  
+  
+```
+
+### Step 2: Estimate the Mincer equation for different subgroups
+
+Estimate the Mincer equation separately for each subgroup:
+
+```{r q1-estimate-subgroups}
+# TODO: Estimate Mincer equation for each subgroup
+# Create a function to estimate Mincer equation for a given subset of data
+mincer_est <- function(data) {
+mincer_model <- lm(log_wage ~ education + experience + exp2, data = data)
+  return(summary(mincer_model))
+  
+}
+
+# TODO: Estimate for each subgroup and store results
+# Create empty data frame to store results
+results_df <- data.frame(
+  subgroup = character(),
+  alpha = numeric(),
+  beta_edu = numeric(),
+  beta_exp = numeric(),
+  beta_exp2 = numeric(),
+  r_squared = numeric(),
+  n_obs = numeric()
+)
+
+# Subgroup 1
+subgroup1_data <- cps_mincer %>% filter(gender_group == "Male" & edu_group == "High School or Less")
+model_summary <- mincer_est(subgroup1_data)
+coefs <- model_summary$coefficients[, "Estimate"]
+results_df <- rbind(results_df, data.frame(
+  subgroup = "Male - High School or Less",
+  alpha = coefs["(Intercept)"],
+  beta_edu = coefs["education"],
+  beta_exp = coefs["experience"],
+  beta_exp2 = coefs["exp2"],
+  r_squared = model_summary$r.squared,
+  n_obs = length(model_summary$residuals)
+))
+result <- mincer_est(subgroup1_data)
+print(result)
+
+# Subgroup 2
+subgroup2_data <- cps_mincer %>% filter(gender_group == "Male" & edu_group == "College+")
+model_summary <- mincer_est(subgroup2_data)
+coefs <- model_summary$coefficients[, "Estimate"]
+results_df <- rbind(results_df, data.frame(
+  subgroup = "Male - College+",
+  alpha = coefs["(Intercept)"],
+  beta_edu = coefs["education"],
+  beta_exp = coefs["experience"],
+  beta_exp2 = coefs["exp2"],
+  r_squared = model_summary$r.squared,
+  n_obs = length(model_summary$residuals)
+))
+
+# Subgroup 3
+subgroup3_data <- cps_mincer %>% filter(gender_group == "Female" & edu_group == "High School or Less")
+model_summary <- mincer_est(subgroup3_data)
+coefs <- model_summary$coefficients[, "Estimate"]
+results_df <- rbind(results_df, data.frame(
+  subgroup = "Female - High School or Less",
+  alpha = coefs["(Intercept)"],
+  beta_edu = coefs["education"],
+  beta_exp = coefs["experience"],
+  beta_exp2 = coefs["exp2"],
+  r_squared = model_summary$r.squared,
+  n_obs = length(model_summary$residuals)
+))
+
+# Subgroup 4
+subgroup4_data <- cps_mincer %>% filter(gender_group == "Female" & edu_group == "College+")
+model_summary <- mincer_est(subgroup4_data)
+coefs <- model_summary$coefficients[, "Estimate"]
+results_df <- rbind(results_df, data.frame(
+  subgroup = "Female - College+",
+  alpha = coefs["(Intercept)"],
+  beta_edu = coefs["education"],
+  beta_exp = coefs["experience"],
+  beta_exp2 = coefs["exp2"],
+  r_squared = model_summary$r.squared,
+  n_obs = length(model_summary$residuals)
+))
+
+rownames(results_df) <- NULL
+print(results_df)
+```
+
+### Step 3: Visualize the results
+
+Create visualizations to compare the returns to education across subgroups:
+
+```{r q1-visualize}
+# TODO: Create visualizations to compare results across subgroups
+# Suggestions:
+# 1. Bar plot comparing returns to education (β₁) across subgroups
+# 2. Scatter plot of log wages vs education by subgroup
+# 3. Experience-wage profiles by subgroup
+
+# 1. Bar plot of returns to education (beta_edu) by subgroup
+# Use your results data frame with columns: subgroup, beta_edu
+# ggplot(results, aes(x = subgroup, y = beta_edu)) + geom_col()
+
+ggplot(results_df, aes(x = subgroup, y = beta_edu, fill = subgroup)) + 
+  geom_col() +
+  labs(
+    title = "Returns to Education by Subgroup",
+    x = "Subgroup",
+    y = "Education Coefficient (beta_edu)"
+  ) +
+  theme_minimal() + 
+ theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+# 2. Scatter plot of log wages vs education by subgroup
+# Use the original cps_mincer data with subgroup information
+# ggplot(cps_mincer, aes(x = education, y = log_wage, color = subgroup)) + 
+#   geom_point(alpha = 0.3) + 
+#   geom_smooth(method = "lm", se = FALSE)
+
+ggplot(cps_mincer, aes(x = education, y = log_wage, color = subgroup)) + 
+  geom_point(alpha = 0.3, size = 1) + 
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(
+    title = "Log Wages vs Education by Subgroup",
+    subtitle = "Points show individual observations, lines show linear fit",
+    x = "Years of Education",
+    y = "Log Hourly Wage",
+    color = "Subgroup"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    plot.title = element_text(face = "bold")
+  ) 
+
+# 3. Experience-wage profiles by subgroup
+# Create predicted wage profiles using the estimated coefficients
+# For each subgroup, create a sequence of experience values (0 to 40 years)
+# Calculate predicted log wages: alpha + beta_edu * education + beta_exp * exp + beta_exp2 * exp^2
+# Plot the predicted profiles for each subgroup
+
+pred_data <- cps_mincer %>%
+  group_by(subgroup) %>%
+  summarise(avg_edu = mean(education, na.rm = TRUE), .groups = "drop") %>%
+  crossing(experience = seq(0, 40, by = 1)) %>%
+  left_join(results_df, by = "subgroup") %>%
+  mutate(
+    predicted_log_wage = alpha + beta_edu * avg_edu + 
+                        beta_exp * experience + 
+                        beta_exp2 * (experience^2)
+  )
+
+p_experience_wage <- ggplot(pred_data, aes(x = experience, y = predicted_log_wage, color = subgroup)) +
+  geom_line(linewidth = 1.2) +
+  scale_color_brewer(palette = "Set1") +
+  scale_y_continuous(labels = scales::number_format(accuracy = 0.01)) +
+  labs(
+    title = "Experience–Wage Profiles by Subgroup",
+    x = "Years of Experience",
+    y = "Predicted Log Hourly Wage",
+    color = "Subgroup"
+  ) +
+  theme_minimal(base_size = 9)
+
+p_experience_wage
+
+# TODO: Bar plot of returns to education
+# TODO: Scatter plot of log wages vs education  
+# TODO: Experience-wage profiles
+```
+
+### Step 4: Interpret the results
+
+Please briefly interpret your results.
+
+## 2. Rolling Window Estimation of the AR(1) Model
+
+### The AR(1) Model
+
+The AR(1) model for inflation is:
+$$\text{infl}_t = \alpha + \rho \cdot \text{infl}_{t-1} + \varepsilon_t$$
+
+Where:
+- $\alpha$ is the intercept (constant term)
+- $\rho$ is the persistence parameter (how much current inflation depends on past inflation)
+- $\varepsilon_t$ is the error term
+
+In this exercise, we will implement rolling window estimation to examine how the persistence of inflation changes over time.
+
+### What is Rolling Window Estimation?
+
+**Rolling window estimation** is a technique used in time series analysis to examine how model parameters change over time. Instead of estimating a model once using all available data, we estimate the model repeatedly using only a fixed-size "window" of recent observations.
+
+**Key concepts:**
+
+- **Window size**: The number of observations used in each estimation (we'll use 120 months = 10 years)
+- **Rolling**: The window moves forward one observation at a time
+- **Time-varying parameters**: This allows us to see how relationships change over time
+
+**Example with our data:**
+
+- Start with observations 1-120, estimate AR(1) model
+- Move to observations 2-121, estimate AR(1) model  
+- Move to observations 3-122, estimate AR(1) model
+- Continue until we reach the end of the data
+
+**Visual representation (window size = 120):**
+```
+Time:     1  2  3  4  ........................... 120 121 ... T
+Window 1: [████████████████████████████████████████]
+Window 2:    [████████████████████████████████████████]
+Window 3:       [████████████████████████████████████████]
+...
+```
+
+Each window gives us one estimate of ρ, creating a time series of ρ estimates.
+
+**Why use rolling windows?**
+1. **Structural breaks**: Economic relationships may change over time
+2. **Parameter stability**: Test if model parameters are constant
+3. **Forecasting**: More recent data may be more relevant for predictions
+4. **Policy analysis**: Understand how economic relationships evolve
+
+
+### Step 1: Prepare the inflation data
+
+```{r q2-prepare-data}
+# TODO: Prepare the inflation time series
+# - Extract the inflation series from data_wg
+# - Remove any missing values
+# - Create lagged inflation variable
+
+# infl_data <- data_wg %>%
+  # TODO: Add your data preparation code here
+  # Hint: select relevant variables and create lags
+```
+
+### Step 2: Implement rolling window estimation
+
+```{r q2-rolling-estimation}
+# TODO: Implement rolling window estimation
+# - Fix window size to 120 months (10 years)
+# - For each window, estimate AR(1) model: infl_t = α + ρ * infl_{t-1} + ε_t
+# - Store the estimated coefficients and their standard errors
+# - Store the R-squared for each window
+
+# Function to estimate AR(1) for a given window
+ar1_est <- function(data_window) {
+  # TODO: Implement AR(1) estimation for a window of data
+  # Steps:
+  # 1. Create lagged inflation: infl_lag = lag(infl, 1)
+  # 2. Remove first observation (due to lag)
+  # 3. Estimate: lm(infl ~ infl_lag, data = data_window)
+  # 4. Extract coefficients, standard errors, R-squared
+  # 5. Return as a list or data frame
+}
+
+# TODO: Implement rolling window loop
+# Detailed steps:
+# 1. Calculate total number of windows: n_windows = nrow(infl_data) - window_size + 1
+# 2. Initialize results data frame
+# 3. Loop through each window:
+#    for (i in 1:n_windows) {
+#      # Get window data: infl_data[i:(i + window_size - 1), ]
+#      # Estimate AR(1) model
+#      # Store results with date = infl_data$date[i + window_size - 1]
+#    }
+
+window_size <- 120
+
+
+```
+
+### Step 3: Visualize the results
+
+```{r q2-visualize}
+# TODO: Create visualizations of the rolling estimates
+# 1. Time series plot of the estimated ρ (persistence parameter)
+
+# TODO: Plot rolling estimates of ρ over time
+```
+
+What do you observe? 
+
+
