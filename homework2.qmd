@@ -13,6 +13,7 @@ set.seed(123)
 # You may load packages you plan to use (optional):
 library(tidyverse)
 library(readxl)
+options(repos = c(CRAN = "https://cloud.r-project.org/"))
 install.packages("zoo")
 library(zoo)
 library(lubridate)
@@ -281,8 +282,18 @@ p_experience_wage
 ```
 
 ### Step 4: Interpret the results
+```{r}
+cat("Graph 1 - Retunr to Education by Subgroup: The returns to education, measured by the beta_edu coefficient are highest for Male- College+ workers at 0.117, meaning each additional year of education is associated with an 11.7% increase in wages. \n
 
-Please briefly interpret your results.
+Graph 2 - Log Wages vs Education by Subgroup: This scatter plot shows a positive relationship between education and log wages across all 4 subgroups. The Male - College+ subgroup has the steepest slop and the highestr wage levels, while the Female - High School or Less workers has the least steep slope, which matches our results for Graph 1 and the results in the data frame from part 2. \n
+
+Graph 3 - Experience-Wage Profiles by Subgroup: All 4 subgroups exhibit a logical trend where wages rise quickjly in early careers, peak after ~25-30 years, then slightly decline., Male-College+ workers have the highest predicted wages throughout their careers, while Female-High School or Less workers have the lowers, which matches all of our previous results. 
+    
+    ")
+
+```
+
+
 
 ## 2. Rolling Window Estimation of the AR(1) Model
 
@@ -341,9 +352,20 @@ Each window gives us one estimate of ρ, creating a time series of ρ estimates.
 # - Remove any missing values
 # - Create lagged inflation variable
 
-# infl_data <- data_wg %>%
+infl_data <- data_wg %>%
   # TODO: Add your data preparation code here
   # Hint: select relevant variables and create lags
+  #take out date and inflaiton 
+  dplyr::select(date, infl) %>%                      
+  #remove missing values
+  filter(!is.na(infl)) %>%                    
+  #lagged inflation
+  mutate(infl_lag1 = lag(infl, n = 1)) %>%   
+  filter(!is.na(infl_lag1))
+head(infl_data)
+
+cat("Total observations:", nrow(infl_data), "\n")
+
 ```
 
 ### Step 2: Implement rolling window estimation
@@ -364,6 +386,27 @@ ar1_est <- function(data_window) {
   # 3. Estimate: lm(infl ~ infl_lag, data = data_window)
   # 4. Extract coefficients, standard errors, R-squared
   # 5. Return as a list or data frame
+  
+  # Estimate AR(1) model: infl_t = α + ρ * infl_{t-1} + ε_t
+  model <- lm(infl ~ infl_lag1, data = data_window)
+  
+  coefs <- coef(model)
+  alpha <- coefs["(Intercept)"]
+  rho <- coefs["infl_lag1"]
+  
+  std_errors <- summary(model)$coefficients[, "Std. Error"]
+  se_alpha <- std_errors["(Intercept)"]
+  se_rho <- std_errors["infl_lag1"]
+  
+  r_squared <- summary(model)$r.squared
+  
+    return(data.frame(
+    alpha = alpha,
+    rho = rho,
+    se_alpha = se_alpha,
+    se_rho = se_rho,
+    r_squared = r_squared
+  ))
 }
 
 # TODO: Implement rolling window loop
@@ -379,6 +422,23 @@ ar1_est <- function(data_window) {
 
 window_size <- 120
 
+rolling_results <- data.frame()
+
+for (i in 1:(nrow(infl_data) - window_size + 1)) {
+  # Extract window of data
+  window_data <- infl_data[i:(i + window_size - 1), ]
+  
+    window_results <- ar1_est(window_data)
+  
+  # Add end date of the window
+  window_results$date <- window_data$date[window_size]
+  
+  # Add to results
+  rolling_results <- rbind(rolling_results, window_results)
+}
+
+head(rolling_results)
+cat("Total number of rolling windows:", nrow(rolling_results), "\n")
 
 ```
 
@@ -389,8 +449,26 @@ window_size <- 120
 # 1. Time series plot of the estimated ρ (persistence parameter)
 
 # TODO: Plot rolling estimates of ρ over time
+p_rho <- ggplot(rolling_results, aes(x = date, y = rho)) +
+  geom_line(color = "steelblue", linewidth = 1) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "red", alpha = 0.5) +
+  labs(
+    title = "Rolling Estimates of Inflation Persistence (ρ)",
+    subtitle = "10-year rolling window AR(1) model",
+    x = "Date (End of Window)",
+    y = "Persistence Parameter (ρ)"
+  ) +
+  theme_minimal(base_size = 12)
+
+p_rho
+
+
 ```
 
 What do you observe? 
+```{r}
+cat("I observe that ρ, the inflation persistence perameter isn't constant over time and varies from nearly 0 to 0.8. There's a dramatic drop in the 1970s, which suggest there was a larghe shock, which could've been from instability in the oil market. This drop is followed by high, persistent inflation in the 1980s and 1990s.ρ experienced a decline until 2000, when it began the rise again and peaked around 2008 and 2018. ")
+```
 
 
